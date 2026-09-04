@@ -35,7 +35,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
-          
+
       - name: Lowercase repository name
         id: repo_name_lowercase
         run: echo "REPO_NAME_LOWERCASE=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
@@ -53,6 +53,16 @@ jobs:
           echo "CLEANED_TAG: $CLEANED_TAG"
           echo "CLEAN_TAG=$CLEANED_TAG" >> $GITHUB_ENV
 
+      - name: Determine application version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "APP_VERSION=${{ env.CLEAN_TAG }}" >> "$GITHUB_ENV"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "APP_VERSION=${{ github.event.inputs.version }}" >> "$GITHUB_ENV"
+          else
+            echo "APP_VERSION=development-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          fi
+
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -65,13 +75,13 @@ jobs:
             type=semver,pattern={{major}}.{{minor}},value=${{ env.CLEAN_TAG }},enable=${{ github.event_name == 'release' }}
             type=semver,pattern={{major}},value=${{ env.CLEAN_TAG }},enable=${{ github.event_name == 'release' }}
             type=raw,value=latest,enable=${{ github.event_name == 'release' }}
-          
+
             # Static development tag
             type=raw,value=development,enable=${{ github.event_name == 'push' && github.ref_name == 'development' }}
-          
+
             # Unique SHA tag for dev builds
             type=sha,prefix=development-,enable=${{ github.event_name == 'push' && github.ref_name == 'development' }}
-          
+
             # Manual Test Tags (manual trigger)
             type=raw,value=${{ github.event.inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' }}
 
@@ -83,5 +93,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_VERSION=${{ env.APP_VERSION }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

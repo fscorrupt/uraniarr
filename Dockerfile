@@ -4,6 +4,8 @@ COPY frontend/ .
 RUN npm install && npm run build
 
 FROM mcr.microsoft.com/playwright/python:v1.54.0-noble
+ARG APP_VERSION=unknown
+ENV APP_VERSION=${APP_VERSION}
 WORKDIR /app
 COPY requirements.txt entry.py ./
 COPY backend/ ./backend
